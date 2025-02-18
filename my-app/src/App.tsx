@@ -1,5 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Confetti from "react-confetti";
+import { initializeApp } from "firebase/app";
+import { getDatabase, ref, set, push, onValue } from "firebase/database";
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCJ7BWfArna55_PHHHunJnjzlFXA_J3WgA",
+  authDomain: "ld-highscore-c08ed.firebaseapp.com",
+  databaseURL: "https://ld-highscore-c08ed-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "ld-highscore-c08ed",
+  storageBucket: "ld-highscore-c08ed.firebasestorage.app",
+  messagingSenderId: "1011318501781",
+  appId: "1:1011318501781:web:862b01f9a13bf55997469c"
+};
+
+// 🔥 Initiera Firebase
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+interface ScoreEntry {
+  name: string;
+  score: number;
+}
 
 function getRandomColor(): string {
   const letters = "0123456789ABCDEF";
@@ -13,14 +35,32 @@ function getRandomColor(): string {
 function App() {
   const [bgColor, setBgColor] = useState<string>("#ffffff");
   const [count, setCount] = useState<number>(0);
-  const [highScore, setHighScore] = useState<number>(0);
   const [totalClicks, setTotalClicks] = useState<number>(0);
   const [showConfetti, setShowConfetti] = useState<boolean>(false);
-  const [danceMove, setDanceMove] = useState<number>(0); // Hanterar figurens rörelse
+  const [leaderboard, setLeaderboard] = useState<ScoreEntry[]>([]);
+
+  useEffect(() => {
+    fetchLeaderboard(); // Hämta leaderboard vid sidstart
+  }, []);
+
+  const fetchLeaderboard = () => {
+    const leaderboardRef = ref(db, "leaderboard");
+    onValue(leaderboardRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const scores = Object.values(data) as ScoreEntry[];
+        setLeaderboard(scores.sort((a, b) => b.score - a.score).slice(0, 10));
+      }
+    });
+  };
+
+  const saveHighScore = (name: string, score: number) => {
+    const newScoreRef = push(ref(db, "leaderboard"));
+    set(newScoreRef, { name, score }).then(() => fetchLeaderboard()); // Uppdatera listan
+  };
 
   const playHighScoreSound = () => {
-    const basePath = import.meta.env.BASE_URL; // Hämtar rätt base-path från Vite
-    const audio = new Audio(`${basePath}highscore.mp3`); // Laddar ljudfilen korrekt
+    const audio = new Audio(import.meta.env.BASE_URL + "highscore.mp3");
     audio.play();
   };
 
@@ -30,26 +70,23 @@ function App() {
     const baseResetChance = count * 0.05;
     const difficultyFactor = 1 / (1 + totalClicks * 0.002);
     const adjustedResetChance = baseResetChance * difficultyFactor;
-
     const randomValue = Math.random();
 
     if (randomValue < adjustedResetChance) {
-      if (count > highScore) {
-        setHighScore(count);
-        setShowConfetti(true);
-        playHighScoreSound();
-
-        setTimeout(() => {
-          setShowConfetti(false);
-        }, 3000);
+      // Nollställning sker
+      if (leaderboard.length < 10 || count > leaderboard[leaderboard.length - 1].score) {
+        const playerName = prompt("🎉 Ny high score! Ange dina 3 bokstäver (A-Z):")?.toUpperCase();
+        if (playerName && /^[A-Z]{3}$/.test(playerName)) {
+          saveHighScore(playerName, count);
+          setShowConfetti(true);
+          playHighScoreSound();
+          setTimeout(() => setShowConfetti(false), 3000);
+        }
       }
       setCount(0);
     } else {
       setCount(count + 1);
       setBgColor(getRandomColor());
-
-      // Växla mellan dansrörelser (-20px och +20px)
-      setDanceMove((prev) => (prev === 0 ? 1 : 0));
     }
   };
 
@@ -77,7 +114,6 @@ function App() {
           fontSize: "50px",
           marginBottom: "20px",
           transition: "transform 0.2s ease-in-out",
-          transform: `translateX(${danceMove === 0 ? "-20px" : "20px"})`,
         }}
       >
         🐱
@@ -106,9 +142,30 @@ function App() {
       </button>
 
       <h2 style={{ fontSize: "24px", color: "#333" }}>Antal klick: {count}</h2>
-      <h3 style={{ fontSize: "20px", color: "#555", marginTop: "10px" }}>
-        High Score: {highScore}
-      </h3>
+
+      {/* Leaderboard */}
+      <h3 style={{ fontSize: "20px", color: "#555", marginTop: "20px" }}>🏆 Leaderboard</h3>
+      <div
+        style={{
+          backgroundColor: "rgba(255,255,255,0.8)",
+          padding: "10px",
+          borderRadius: "10px",
+          textAlign: "center",
+          width: "200px",
+        }}
+      >
+        {leaderboard.length === 0 ? (
+          <p style={{ fontSize: "14px", color: "#777" }}>Inga high scores än!</p>
+        ) : (
+          <ol style={{ paddingLeft: "15px", fontSize: "16px", color: "#333" }}>
+            {leaderboard.map((entry, index) => (
+              <li key={index}>
+                {entry.name} - {entry.score}
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
     </div>
   );
 }
