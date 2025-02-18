@@ -14,39 +14,42 @@ function App() {
   const [bgColor, setBgColor] = useState<string>("#ffffff");
   const [count, setCount] = useState<number>(0);
   const [highScore, setHighScore] = useState<number>(0);
-  const [totalClicks, setTotalClicks] = useState<number>(0); // Dold, men används i logiken
+  const [totalClicks, setTotalClicks] = useState<number>(0);
   const [showConfetti, setShowConfetti] = useState<boolean>(false);
+  const [danceMove, setDanceMove] = useState<number>(0); // Hanterar figurens rörelse
 
-  // Funktion för att spela upp ljud när high score uppnås
   const playHighScoreSound = () => {
-    const audio = new Audio("/highscore.mp3"); // Filen ligger i public/ mappen
+    const basePath = import.meta.env.BASE_URL; // Hämtar rätt base-path från Vite
+    const audio = new Audio(`${basePath}highscore.mp3`); // Laddar ljudfilen korrekt
     audio.play();
   };
 
   const handleClick = () => {
-    setTotalClicks(totalClicks + 1); // Räknar antal klick totalt (dolt)
+    setTotalClicks(totalClicks + 1);
 
-    const baseResetChance = count * 0.05; // Grundrisk att nollställas (5% per klick)
-    const difficultyFactor = 1 / (1 + totalClicks * 0.002); // Minskar risken att nollställas med fler totala klick
+    const baseResetChance = count * 0.05;
+    const difficultyFactor = 1 / (1 + totalClicks * 0.002);
     const adjustedResetChance = baseResetChance * difficultyFactor;
 
-    const randomValue = Math.random(); // Slumpvärde mellan 0 och 1
+    const randomValue = Math.random();
 
     if (randomValue < adjustedResetChance) {
-      // Nollställning sker
       if (count > highScore) {
-        setHighScore(count); // Uppdatera high score
-        setShowConfetti(true); // Visa konfetti
-        playHighScoreSound(); // Spela upp ljud
+        setHighScore(count);
+        setShowConfetti(true);
+        playHighScoreSound();
 
         setTimeout(() => {
           setShowConfetti(false);
         }, 3000);
       }
-      setCount(0); // Återställ räknaren
+      setCount(0);
     } else {
-      setCount(count + 1); // Öka räknaren
-      setBgColor(getRandomColor()); // Ändra bakgrundsfärg
+      setCount(count + 1);
+      setBgColor(getRandomColor());
+
+      // Växla mellan dansrörelser (-20px och +20px)
+      setDanceMove((prev) => (prev === 0 ? 1 : 0));
     }
   };
 
@@ -67,6 +70,18 @@ function App() {
       }}
     >
       {showConfetti && <Confetti width={window.innerWidth} height={window.innerHeight} />}
+
+      {/* 🐱 Dansande figur */}
+      <div
+        style={{
+          fontSize: "50px",
+          marginBottom: "20px",
+          transition: "transform 0.2s ease-in-out",
+          transform: `translateX(${danceMove === 0 ? "-20px" : "20px"})`,
+        }}
+      >
+        🐱
+      </div>
 
       <button
         onClick={handleClick}
