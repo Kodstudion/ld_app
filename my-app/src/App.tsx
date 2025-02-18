@@ -5,13 +5,13 @@ import { getDatabase, ref, set, push, onValue } from "firebase/database";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCJ7BWfArna55_PHHHunJnjzlFXA_J3WgA",
-  authDomain: "ld-highscore-c08ed.firebaseapp.com",
-  databaseURL: "https://ld-highscore-c08ed-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "ld-highscore-c08ed",
-  storageBucket: "ld-highscore-c08ed.firebasestorage.app",
-  messagingSenderId: "1011318501781",
-  appId: "1:1011318501781:web:862b01f9a13bf55997469c"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // 🔥 Initiera Firebase
