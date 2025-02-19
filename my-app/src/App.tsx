@@ -3,7 +3,7 @@ import Confetti from "react-confetti";
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, set, push, onValue } from "firebase/database";
 
-// Your web app's Firebase configuration
+// 🔥 Firebase-konfiguration
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -23,6 +23,7 @@ interface ScoreEntry {
   score: number;
 }
 
+// 🎨 Funktion för att slumpa fram en ny bakgrundsfärg
 function getRandomColor(): string {
   const letters = "0123456789ABCDEF";
   let color = "#";
@@ -36,58 +37,79 @@ function App() {
   const [bgColor, setBgColor] = useState<string>("#ffffff");
   const [count, setCount] = useState<number>(0);
   const [totalClicks, setTotalClicks] = useState<number>(0);
+  const [sessionHighScore, setSessionHighScore] = useState<number>(0);
   const [showConfetti, setShowConfetti] = useState<boolean>(false);
   const [leaderboard, setLeaderboard] = useState<ScoreEntry[]>([]);
+  const [danceMove, setDanceMove] = useState<number>(0); // 🔥 Ändra rörelse mellan -20px och 20px
 
   useEffect(() => {
-    fetchLeaderboard(); // Hämta leaderboard vid sidstart
+    fetchLeaderboard();
   }, []);
+
+  useEffect(() => {
+    setDanceMove((prevMove) => (prevMove === 0 ? 1 : 0)); // 🔥 Uppdatera dansrörelsen vid varje klick
+  }, [count]);
 
   const fetchLeaderboard = () => {
     const leaderboardRef = ref(db, "leaderboard");
     onValue(leaderboardRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
         const scores = Object.values(data) as ScoreEntry[];
         setLeaderboard(scores.sort((a, b) => b.score - a.score).slice(0, 10));
+      } else {
+        console.warn("⚠️ Ingen data hittades i Firebase!");
       }
     });
   };
 
   const saveHighScore = (name: string, score: number) => {
     const newScoreRef = push(ref(db, "leaderboard"));
-    set(newScoreRef, { name, score }).then(() => fetchLeaderboard()); // Uppdatera listan
-  };
-
-  const playHighScoreSound = () => {
-    const audio = new Audio(import.meta.env.BASE_URL + "highscore.mp3");
-    audio.play();
+    set(newScoreRef, { name, score })
+      .then(() => {
+        console.log(`✅ High score sparat: ${name} - ${score}`);
+        fetchLeaderboard();
+      })
+      .catch((error) => {
+        console.error("❌ Fel vid sparning i Firebase:", error);
+      });
   };
 
   const handleClick = () => {
-    setTotalClicks(totalClicks + 1);
+    setCount((prevCount) => {
+      const newCount = prevCount + 1;
+      setTotalClicks((prevTotal) => prevTotal + 1);
 
-    const baseResetChance = count * 0.05;
-    const difficultyFactor = 1 / (1 + totalClicks * 0.002);
-    const adjustedResetChance = baseResetChance * difficultyFactor;
-    const randomValue = Math.random();
+      // 🔥 Ändra bakgrundsfärg vid varje klick
+      setBgColor(getRandomColor());
 
-    if (randomValue < adjustedResetChance) {
-      // Nollställning sker
-      if (leaderboard.length < 10 || count > leaderboard[leaderboard.length - 1].score) {
+      // 🔥 Uppdatera sessionens high score om den slås
+      if (newCount > sessionHighScore) {
+        setSessionHighScore(newCount);
+      }
+
+      // 🔥 Mekanism för slumpmässig nollställning
+      const baseResetChance = newCount * 0.05;
+      const difficultyFactor = 1 / (1 + totalClicks * 0.002);
+      const adjustedResetChance = baseResetChance * difficultyFactor;
+
+      if (Math.random() < adjustedResetChance) {
+        return 0;
+      }
+
+      // 🔥 Kontrollera om poängen ska sparas i leaderboarden
+      if (leaderboard.length < 10 || newCount > leaderboard[leaderboard.length - 1].score) {
         const playerName = prompt("🎉 Ny high score! Ange dina 3 bokstäver (A-Z):")?.toUpperCase();
         if (playerName && /^[A-Z]{3}$/.test(playerName)) {
-          saveHighScore(playerName, count);
+          saveHighScore(playerName, newCount);
           setShowConfetti(true);
-          playHighScoreSound();
           setTimeout(() => setShowConfetti(false), 3000);
         }
+        return 0; // 🔴 Nollställ klickräknaren efter high score
       }
-      setCount(0);
-    } else {
-      setCount(count + 1);
-      setBgColor(getRandomColor());
-    }
+
+      return newCount; // Uppdatera `count` som normalt
+    });
   };
 
   return (
@@ -108,12 +130,13 @@ function App() {
     >
       {showConfetti && <Confetti width={window.innerWidth} height={window.innerHeight} />}
 
-      {/* 🐱 Dansande figur */}
+      {/* 🐱 Dansande katt */}
       <div
         style={{
           fontSize: "50px",
           marginBottom: "20px",
           transition: "transform 0.2s ease-in-out",
+          transform: `translateX(${danceMove ? "20px" : "-20px"})`, // 🔥 Katten rör sig åt höger/vänster
         }}
       >
         🐱
@@ -141,31 +164,16 @@ function App() {
         Tryck!
       </button>
 
-      <h2 style={{ fontSize: "24px", color: "#333" }}>Antal klick: {count}</h2>
+      <h2>Antal klick: {count}</h2>
 
-      {/* Leaderboard */}
-      <h3 style={{ fontSize: "20px", color: "#555", marginTop: "20px" }}>🏆 Leaderboard</h3>
-      <div
-        style={{
-          backgroundColor: "rgba(255,255,255,0.8)",
-          padding: "10px",
-          borderRadius: "10px",
-          textAlign: "center",
-          width: "200px",
-        }}
-      >
-        {leaderboard.length === 0 ? (
-          <p style={{ fontSize: "14px", color: "#777" }}>Inga high scores än!</p>
-        ) : (
-          <ol style={{ paddingLeft: "15px", fontSize: "16px", color: "#333" }}>
-            {leaderboard.map((entry, index) => (
-              <li key={index}>
-                {entry.name} - {entry.score}
-              </li>
-            ))}
-          </ol>
-        )}
-      </div>
+      <h3 style={{ color: "blue" }}>🔥 Session High Score: {sessionHighScore}</h3>
+
+      <h3>🏆 Leaderboard</h3>
+      <ul>
+        {leaderboard.map((entry, index) => (
+          <li key={index}>{entry.name} - {entry.score}</li>
+        ))}
+      </ul>
     </div>
   );
 }
